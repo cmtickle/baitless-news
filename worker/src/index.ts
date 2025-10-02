@@ -7,6 +7,7 @@ export interface NewsStory {
   summary: string;
   betterSummary?: string;
   sourceUrl?: string;
+  articleContent?: string;
 }
 
 interface Env {
@@ -52,6 +53,7 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
   const rssText = await rssResponse.text();
   const rawItems = parseRssItems(rssText);
 
+  //populate the stories can call the fetcharticlecontent function
   const stories: NewsStory[] = rawItems.slice(0, MAX_STORIES).map((item, index) => ({
     id: item.guid || `story-${index + 1}`,
     title: item.title || 'Untitled story',
