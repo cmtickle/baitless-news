@@ -59,13 +59,25 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
 
   //populate the stories and call the fetchArticleContent function
   const stories: NewsStory[] = await Promise.all(
-    rawItems.slice(0, MAX_STORIES).map(async (item, index) => ({
-      id: item.guid || `story-${index + 1}`,
-      title: item.title || 'Untitled story',
-      summary: stripHtml(item.description),
-      sourceUrl: item.link || undefined,
-      articleContent: item.link ? await fetchArticleContent(item.link) : undefined,
-    }))
+    rawItems.slice(0, MAX_STORIES).map(async (item, index) => {
+      let articleContent: string | undefined;
+
+      if (item.link) {
+        try {
+          articleContent = await fetchArticleContent(item.link);
+        } catch (error) {
+          console.warn('Failed to fetch article body for', item.link, error);
+        }
+      }
+
+      return {
+        id: item.guid || `story-${index + 1}`,
+        title: item.title || 'Untitled story',
+        summary: stripHtml(item.description),
+        sourceUrl: item.link || undefined,
+        articleContent,
+      };
+    })
   );
 
   if (!stories.length || !openAiKey) {
@@ -198,9 +210,28 @@ function parseRssItems(xml: string): Array<{
 function getText(parent: Element, selectors: string[]): string {
   for (const selector of selectors) {
     const node = parent.querySelector(selector);
-    const text = node?.textContent?.trim();
+    if (!node) {
+      continue;
+    }
+
+    const text = node.textContent?.trim();
     if (text) {
       return text;
+    }
+
+    const cdata = Array.from(node.childNodes ?? [])
+      .map((child: any) => {
+        if (child?.nodeType === 3 || child?.nodeType === 4) {
+          return (child.data ?? child.textContent ?? '').trim();
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    if (cdata) {
+      return cdata;
     }
   }
 
