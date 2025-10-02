@@ -65,7 +65,6 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
     return stories;
   }
 
-  return stories;
   return enhanceStoriesWithGPT(stories, openAiKey);
 }
 
@@ -105,7 +104,10 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
 
       if (!enhancedText) {
         console.warn('OpenAI response missing content for story', story.id);
-        return story;
+        return {
+          ...story,
+          articleContent: articleContent || story.articleContent,
+        };
       }
 
       const [maybeTitle, ...rest] = enhancedText.split('\n');
@@ -113,6 +115,7 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
 
       return {
         ...story,
+        articleContent: articleContent || story.articleContent,
         betterTitle: maybeTitle?.replace(/^Title\s*:?/i, '').trim() || story.title,
         betterSummary: enhancedSummary || story.summary,
       };
@@ -148,7 +151,7 @@ function buildPrompt(story: NewsStory, articleContent: string): string {
 }
 
 function extractArticleBody(html: string): string {
-  const document = new DOMParser().parseFromString(html, 'text/html');
+  const { document } = new DOMParser().parseFromString(html, 'text/html');
   const articleDivs = Array.from(
     document.querySelectorAll('div[data-mrf-recirculation="Link Content Paragraph"]'),
   );
@@ -174,7 +177,7 @@ function parseRssItems(xml: string): Array<{
   link: string;
   guid: string;
 }> {
-  const document = new DOMParser().parseFromString(xml, 'application/xml');
+  const { document } = new DOMParser().parseFromString(xml, 'application/xml');
   const items = Array.from(document.querySelectorAll('item'));
 
   return items.map((item) => ({
@@ -202,7 +205,7 @@ function stripHtml(value: string): string {
     return '';
   }
 
-  const document = new DOMParser().parseFromString(`<body>${value}</body>`, 'text/html');
+  const { document } = new DOMParser().parseFromString(`<body>${value}</body>`, 'text/html');
   const text = document.body?.textContent ?? '';
   return text.replace(/\s+/g, ' ').trim();
 }
