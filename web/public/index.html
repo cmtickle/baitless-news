@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Baitless News</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Baitless News</h1>
+      <p>Honest headlines without the clickbait fluff.</p>
+    </header>
+    <main>
+      <section id="summary">
+        <h2>Today's Summaries</h2>
+        <div id="stories" aria-live="polite">
+          <p class="placeholder">Loading the latest headlines...</p>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <small>Powered by GPT-5-nano on Cloudflare Workers.</small>
+    </footer>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

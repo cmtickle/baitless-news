@@ -1,0 +1,89 @@
+# Baitless News
+
+An experiment demonstrating Cloudflare Pages plus a Cloudflare Worker that rewrites daily headlines into concise, non-clickbait summaries with GPT-5-nano.
+
+## Repository layout
+
+- `web/public/` – Static frontend served via Cloudflare Pages. Displays summaries fetched from `/api/news`.
+- `worker/` – TypeScript Cloudflare Worker that pulls headlines and asks GPT-5-nano for calmer summaries.
+- `wrangler.toml` – Worker configuration used by Wrangler for local development and deployment.
+
+## Frontend (Cloudflare Pages)
+
+The `web/public` directory is deployable as-is. For local iteration you can run a static file server, or use Wrangler's Pages tooling once configured:
+
+```bash
+wrangler pages dev web/public
+```
+
+When you connect the repository to Cloudflare Pages, set the build command to `null` (no build) and output directory to `web/public`.
+
+## Worker API (`/api/news`)
+
+The Worker now accepts `GET` requests and returns JSON shaped like:
+
+```json
+{
+  "stories": [
+    {
+      "id": "story-1",
+      "title": "Calmer headline",
+      "summary": "Non-clickbait summary text.",
+      "sourceUrl": "https://..."
+    }
+  ]
+}
+```
+
+It grabs the latest UK headlines from NewsAPI.org, limits the result set, and asks GPT-5-nano to rewrite each title and description for clarity. Network calls are made on demand; consider caching before shipping to production.
+
+### Required environment values
+
+Store these in Cloudflare (or a local `.dev.vars` file when using `wrangler dev`):
+
+- `OPENAI_API_KEY` – GPT-5-nano access token.
+- `NEWS_API_KEY` – NewsAPI.org key with top-headlines permissions.
+
+### Local development
+
+```bash
+cd worker
+npm install
+# Add OPENAI_API_KEY and NEWS_API_KEY to .dev.vars before starting dev
+npm run dev
+```
+
+The dev server binds to `http://localhost:8787`; hitting `http://localhost:8787/api/news` triggers live NewsAPI and OpenAI calls.
+
+### Deployment
+
+1. Configure `wrangler.toml` with your preferred project name and add a route, e.g.
+
+   ```toml
+   name = "baitless-news-worker"
+   main = "worker/src/index.ts"
+   compatibility_date = "2024-04-02"
+
+   routes = [
+     { pattern = "baitless-news.hypothetic.dev/api/news", zone_name = "hypothetic.dev" }
+   ]
+   ```
+
+2. Store the secrets in Cloudflare:
+
+   ```bash
+   wrangler secret put OPENAI_API_KEY
+   wrangler secret put NEWS_API_KEY
+   ```
+
+3. Deploy:
+
+   ```bash
+   npm run deploy
+   ```
+
+### Next steps
+
+- Add caching or scheduled jobs so GPT calls are reused instead of running on each request.
+- Connect the Pages project and Worker route inside the Cloudflare dashboard.
+- Add integration tests or monitoring before the live demo.
