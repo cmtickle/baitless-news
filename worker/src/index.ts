@@ -151,7 +151,7 @@ function buildPrompt(story: NewsStory, articleContent: string): string {
 }
 
 function extractArticleBody(html: string): string {
-  const { document } = new DOMParser().parseFromString(html, 'text/html');
+  const document = parseDocument(html, 'text/html');
   const articleDivs = Array.from(
     document.querySelectorAll('div[data-mrf-recirculation="Link Content Paragraph"]'),
   );
@@ -177,7 +177,7 @@ function parseRssItems(xml: string): Array<{
   link: string;
   guid: string;
 }> {
-  const { document } = new DOMParser().parseFromString(xml, 'application/xml');
+  const document = parseDocument(xml, 'application/xml');
   const items = Array.from(document.querySelectorAll('item'));
 
   return items.map((item) => ({
@@ -205,9 +205,14 @@ function stripHtml(value: string): string {
     return '';
   }
 
-  const { document } = new DOMParser().parseFromString(`<body>${value}</body>`, 'text/html');
+  const document = parseDocument(`<body>${value}</body>`, 'text/html');
   const text = document.body?.textContent ?? '';
   return text.replace(/\s+/g, ' ').trim();
+}
+
+function parseDocument(content: string, type: 'text/html' | 'application/xml'): Document {
+  const parsed = new DOMParser().parseFromString(content, type) as any;
+  return parsed?.document ?? parsed;
 }
 
 function truncate(value: string, maxLength: number): string {
