@@ -87,24 +87,13 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
     return stories;
   }
 
-  //Debug - disable GPT enhancement
-  return stories;
-  //return enhanceStoriesWithGPT(stories, openAiKey);
+  return enhanceStoriesWithGPT(stories, openAiKey);
 }
 
 async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Promise<NewsStory[]> {
   return Promise.all(
     stories.map(async (story) => {
-      let articleContent = '';
-
-      if (story.sourceUrl) {
-        try {
-          articleContent = await fetchArticleContent(story.sourceUrl);
-        } catch (error) {
-          console.warn('Failed to fetch article body for', story.sourceUrl, error);
-        }
-      }
-
+      const articleContent = story.articleContent?.trim() || '';
       const prompt = buildPrompt(story, articleContent);
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -161,7 +150,7 @@ async function fetchArticleContent(url: string): Promise<string> {
 }
 
 function buildPrompt(story: NewsStory, articleContent: string): string {
-  let prompt = 'Rewrite the headline and summary below so they remain factual, concise, and non-clickbait. Separate the rewritten headline and summary with a newline.';
+  let prompt = 'Rewrite the headline and summary below so they remain factual, concise, and non-clickbait containing specifics rather than generalisations. Separate the rewritten headline and summary with a newline.';
   prompt += `\n\nHeadline: ${story.title}`;
   prompt += `\nSummary: ${story.summary}`;
 
