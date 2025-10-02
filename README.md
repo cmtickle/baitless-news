@@ -35,7 +35,7 @@ The Worker now accepts `GET` requests and returns JSON shaped like:
 }
 ```
 
-It fetches the latest UK headlines from the Daily Express RSS feed, spoofing a realistic desktop Chrome user agent so the site treats requests like a normal browser. The worker parses both the RSS and article HTML with `linkedom`'s `DOMParser` so it can iterate over Express' repeated `div[data-mrf-recirculation="Link Content Paragraph"]` blocks and recover proper article text before prompting GPT-5-nano for calmer rewrites. Network calls are made on demand; consider caching before shipping to production.
+It fetches the latest UK headlines from the Daily Express RSS feed, spoofing a realistic desktop Chrome user agent (and related headers) so the site treats requests like a normal browser. The worker parses both the RSS and article HTML with `linkedom`'s `DOMParser` so it can iterate over Express' repeated `div[data-mrf-recirculation="Link Content Paragraph"]` blocks and recover proper article text before prompting GPT-5-nano for calmer rewrites. Network calls are made on demand; consider caching before shipping to production.
 
 ### Required environment values
 

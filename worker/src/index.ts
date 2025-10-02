@@ -18,6 +18,12 @@ const EXPRESS_RSS_FEED = 'https://www.express.co.uk/posts/rss/1';
 const MAX_STORIES = 12;
 const ARTICLE_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
+const EXPRESS_HEADERS = {
+  'User-Agent': ARTICLE_USER_AGENT,
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-GB,en;q=0.9',
+  Referer: 'https://www.express.co.uk/',
+};
 
 // Cloudflare Worker entry point
 export default {
@@ -41,9 +47,7 @@ export default {
 
 async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]> {
   const rssResponse = await fetch(EXPRESS_RSS_FEED, {
-    headers: {
-      'User-Agent': ARTICLE_USER_AGENT,
-    },
+    headers: EXPRESS_HEADERS,
   });
 
   if (!rssResponse.ok) {
@@ -125,9 +129,7 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
 
 async function fetchArticleContent(url: string): Promise<string> {
   const response = await fetch(url, {
-    headers: {
-      'User-Agent': ARTICLE_USER_AGENT,
-    },
+    headers: EXPRESS_HEADERS,
   });
 
   if (!response.ok) {
