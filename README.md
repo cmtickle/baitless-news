@@ -35,7 +35,7 @@ The Worker now accepts `GET` requests and returns JSON shaped like:
 }
 ```
 
-It fetches the latest UK headlines from the Daily Express RSS feed, pares them down, and asks GPT-5-nano to rewrite each title and description for clarity. Network calls are made on demand; consider caching before shipping to production.
+It fetches the latest UK headlines from the Daily Express RSS feed, pares them down, and asks GPT-5-nano to rewrite each title and description for clarity. Because Workers do not expose `DOMParser`, the feed is parsed with a lightweight regex helper instead of a full XML DOM. Network calls are made on demand; consider caching before shipping to production.
 
 ### Required environment values
 

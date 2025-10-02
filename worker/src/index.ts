@@ -44,21 +44,14 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
   }
 
   const rssText = await rssResponse.text();
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(rssText, 'application/xml');
-  const items = Array.from(xml.querySelectorAll('item'));
+  const rawItems = parseRssItems(rssText);
 
-  const stories: NewsStory[] = items.slice(0, MAX_STORIES).map((item, index) => {
-    const title = getNodeText(item, 'title');
-    const description = getNodeText(item, 'description');
-
-    return {
-      id: getNodeText(item, 'guid') || `story-${index + 1}`,
-      title: title || 'Untitled story',
-      summary: stripHtml(description),
-      sourceUrl: getNodeText(item, 'link') || undefined,
-    };
-  });
+  const stories: NewsStory[] = rawItems.slice(0, MAX_STORIES).map((item, index) => ({
+    id: item.guid || `story-${index + 1}`,
+    title: item.title || 'Untitled story',
+    summary: stripHtml(item.description),
+    sourceUrl: item.link || undefined,
+  }));
 
   if (!stories.length || !openAiKey) {
     return stories;
@@ -109,8 +102,38 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
   );
 }
 
-function getNodeText(node: Element, selector: string): string {
-  return node.querySelector(selector)?.textContent?.trim() ?? '';
+function parseRssItems(xml: string): Array<{ title: string; description: string; link: string; guid: string }> {
+  const itemRegex = /<item\b[\s\S]*?<\/item>/gi;
+  const items: Array<{ title: string; description: string; link: string; guid: string }> = [];
+
+  for (const match of xml.matchAll(itemRegex)) {
+    const block = match[0];
+    items.push({
+      title: extractTag(block, 'title'),
+      description: extractTag(block, 'description'),
+      link: extractTag(block, 'link'),
+      guid: extractTag(block, 'guid'),
+    });
+  }
+
+  return items;
+}
+
+function extractTag(xml: string, tag: string): string {
+  const pattern = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
+  const match = xml.match(pattern);
+  if (!match) {
+    return '';
+  }
+
+  const content = match[1]
+    .replace(/<!\[CDATA\[([\\s\\S]*?)\]\]>/gi, '$1')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+
+  return content;
 }
 
 function stripHtml(value: string): string {
