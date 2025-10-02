@@ -74,7 +74,7 @@ The dev server binds to `http://localhost:8787`; hitting `http://localhost:8787/
    wrangler secret put OPENAI_API_KEY
    ```
 
-3. Deploy:
+3. Deploy (Wrangler runs `npm install --prefix worker` automatically before bundling, so the Worker always ships with the `linkedom` dependency):
 
    ```bash
    npm run deploy
