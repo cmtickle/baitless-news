@@ -35,25 +35,24 @@ The Worker now accepts `GET` requests and returns JSON shaped like:
 }
 ```
 
-It grabs the latest UK headlines from NewsAPI.org, limits the result set, and asks GPT-5-nano to rewrite each title and description for clarity. Network calls are made on demand; consider caching before shipping to production.
+It fetches the latest UK headlines from the Daily Express RSS feed, pares them down, and asks GPT-5-nano to rewrite each title and description for clarity. Network calls are made on demand; consider caching before shipping to production.
 
 ### Required environment values
 
-Store these in Cloudflare (or a local `.dev.vars` file when using `wrangler dev`):
+Store this in Cloudflare (or a local `.dev.vars` file when using `wrangler dev`):
 
-- `OPENAI_API_KEY` – GPT-5-nano access token.
-- `NEWS_API_KEY` – NewsAPI.org key with top-headlines permissions.
+- `OPENAI_API_KEY` – GPT-5-nano access token. If omitted the Worker will return raw RSS content without rewrites.
 
 ### Local development
 
 ```bash
 cd worker
 npm install
-# Add OPENAI_API_KEY and NEWS_API_KEY to .dev.vars before starting dev
+# Optional: add OPENAI_API_KEY to .dev.vars before starting dev
 npm run dev
 ```
 
-The dev server binds to `http://localhost:8787`; hitting `http://localhost:8787/api/news` triggers live NewsAPI and OpenAI calls.
+The dev server binds to `http://localhost:8787`; hitting `http://localhost:8787/api/news` fetches the Express feed and, when configured, invokes GPT for rewrites.
 
 ### Deployment
 
@@ -69,11 +68,10 @@ The dev server binds to `http://localhost:8787`; hitting `http://localhost:8787/
    ]
    ```
 
-2. Store the secrets in Cloudflare:
+2. Store the OpenAI secret in Cloudflare:
 
    ```bash
    wrangler secret put OPENAI_API_KEY
-   wrangler secret put NEWS_API_KEY
    ```
 
 3. Deploy:

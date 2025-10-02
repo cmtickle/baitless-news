@@ -7,10 +7,9 @@ export interface NewsStory {
 
 interface Env {
   OPENAI_API_KEY: string;
-  NEWS_API_KEY: string;
 }
 
-const NEWS_ENDPOINT = 'https://newsapi.org/v2/top-headlines?country=gb';
+const EXPRESS_RSS_FEED = 'https://www.express.co.uk/posts/rss/1';
 const MAX_STORIES = 12;
 
 // Cloudflare Worker entry point
@@ -24,7 +23,7 @@ export default {
     }
 
     try {
-      const stories = await fetchAndSummariseStories(env);
+      const stories = await fetchAndSummariseStories(env.OPENAI_API_KEY);
       return Response.json({ stories });
     } catch (error) {
       console.error('Failed to fetch news stories', error);
@@ -33,33 +32,45 @@ export default {
   },
 };
 
-async function fetchAndSummariseStories(env: Env): Promise<NewsStory[]> {
-  const newsResponse = await fetch(`${NEWS_ENDPOINT}&apiKey=${env.NEWS_API_KEY}`);
-  if (!newsResponse.ok) {
-    throw new Error(`News API request failed with status ${newsResponse.status}`);
+async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]> {
+  const rssResponse = await fetch(EXPRESS_RSS_FEED, {
+    headers: {
+      'User-Agent': 'baitless-news-worker/1.0 (https://baitless-news.hypothetic.dev)',
+    },
+  });
+
+  if (!rssResponse.ok) {
+    throw new Error(`Express RSS request failed with status ${rssResponse.status}`);
   }
 
-  const newsData: unknown = await newsResponse.json();
-  const articles = Array.isArray((newsData as any)?.articles) ? (newsData as any).articles : [];
+  const rssText = await rssResponse.text();
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(rssText, 'application/xml');
+  const items = Array.from(xml.querySelectorAll('item'));
 
-  const stories: NewsStory[] = articles.slice(0, MAX_STORIES).map((article: any, index: number) => ({
-    id: `story-${index + 1}`,
-    title: article.title ?? 'Untitled story',
-    summary: article.description ?? '',
-    sourceUrl: article.url ?? undefined,
-  }));
+  const stories: NewsStory[] = items.slice(0, MAX_STORIES).map((item, index) => {
+    const title = getNodeText(item, 'title');
+    const description = getNodeText(item, 'description');
 
-  if (!stories.length) {
+    return {
+      id: getNodeText(item, 'guid') || `story-${index + 1}`,
+      title: title || 'Untitled story',
+      summary: stripHtml(description),
+      sourceUrl: getNodeText(item, 'link') || undefined,
+    };
+  });
+
+  if (!stories.length || !openAiKey) {
     return stories;
   }
 
-  return enhanceStoriesWithGPT(stories, env.OPENAI_API_KEY);
+  return enhanceStoriesWithGPT(stories, openAiKey);
 }
 
 async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Promise<NewsStory[]> {
   return Promise.all(
     stories.map(async (story) => {
-      const prompt = `Rewrite the headline and summary below so they remain factual, concise, and non-clickbait. Separate the rewritten headline and summary with a newline.\n\nHeadline: ${story.title}\nSummary: ${story.summary}`;
+      const prompt = `Rewrite the headline and summary below so they remain factual, concise, and non-clickbait. Separate the rewritten headline and summary with a newline.\\n\\nHeadline: ${story.title}\\nSummary: ${story.summary}`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -96,4 +107,12 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
       };
     }),
   );
+}
+
+function getNodeText(node: Element, selector: string): string {
+  return node.querySelector(selector)?.textContent?.trim() ?? '';
+}
+
+function stripHtml(value: string): string {
+  return value.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim();
 }
