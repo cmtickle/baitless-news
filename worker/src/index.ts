@@ -63,6 +63,7 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
     return stories;
   }
 
+  return stories;
   return enhanceStoriesWithGPT(stories, openAiKey);
 }
 
