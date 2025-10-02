@@ -57,13 +57,16 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
   const rssText = await rssResponse.text();
   const rawItems = parseRssItems(rssText);
 
-  //populate the stories can call the fetcharticlecontent function
-  const stories: NewsStory[] = rawItems.slice(0, MAX_STORIES).map((item, index) => ({
-    id: item.guid || `story-${index + 1}`,
-    title: item.title || 'Untitled story',
-    summary: stripHtml(item.description),
-    sourceUrl: item.link || undefined,
-  }));
+  //populate the stories and call the fetchArticleContent function
+  const stories: NewsStory[] = await Promise.all(
+    rawItems.slice(0, MAX_STORIES).map(async (item, index) => ({
+      id: item.guid || `story-${index + 1}`,
+      title: item.title || 'Untitled story',
+      summary: stripHtml(item.description),
+      sourceUrl: item.link || undefined,
+      articleContent: item.link ? await fetchArticleContent(item.link) : undefined,
+    }))
+  );
 
   if (!stories.length || !openAiKey) {
     return stories;
