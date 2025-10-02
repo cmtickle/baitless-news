@@ -73,8 +73,7 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
         },
         body: JSON.stringify({
           model: 'gpt-5-nano',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 200,
+          messages: [{ role: 'user', content: prompt }]
         }),
       });
 
