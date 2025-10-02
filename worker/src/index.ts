@@ -70,10 +70,13 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
         }
       }
 
+      const title = decodeEntities(item.title);
+      const description = decodeEntities(item.description);
+
       return {
         id: item.guid || `story-${index + 1}`,
-        title: item.title || 'Untitled story',
-        summary: stripHtml(item.description),
+        title: title || 'Untitled story',
+        summary: stripHtml(description),
         sourceUrl: item.link || undefined,
         articleContent,
       };
@@ -214,7 +217,7 @@ function getText(parent: Element, selectors: string[]): string {
       continue;
     }
 
-    const text = node.textContent?.trim();
+    const text = decodeEntities(node.textContent ?? '').trim();
     if (text) {
       return text;
     }
@@ -222,7 +225,7 @@ function getText(parent: Element, selectors: string[]): string {
     const cdata = Array.from(node.childNodes ?? [])
       .map((child: any) => {
         if (child?.nodeType === 3 || child?.nodeType === 4) {
-          return (child.data ?? child.textContent ?? '').trim();
+          return decodeEntities(child.data ?? child.textContent ?? '').trim();
         }
         return '';
       })
@@ -242,15 +245,34 @@ function stripHtml(value: string): string {
   if (!value) {
     return '';
   }
+  const decoded = decodeEntities(value)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<p>/gi, '<p>\n');
 
-  const document = parseDocument(`<body>${value}</body>`, 'text/html');
-  const text = document.body?.textContent ?? '';
-  return text.replace(/\s+/g, ' ').trim();
+  return decoded
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function parseDocument(content: string, type: 'text/html' | 'application/xml'): Document {
   const parsed = new DOMParser().parseFromString(content, type) as any;
   return parsed?.document ?? parsed;
+}
+
+function decodeEntities(value: string): string {
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'");
 }
 
 function truncate(value: string, maxLength: number): string {
