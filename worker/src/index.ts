@@ -155,7 +155,7 @@ function buildPrompt(story: NewsStory, articleContent: string): string {
 function extractArticleBody(html: string): string {
   const document = parseDocument(html, 'text/html');
   const articleDivs = Array.from(
-    document.querySelectorAll('div[data-mrf-recirculation="Link Content Paragraph"]'),
+    document.querySelectorAll('.text-description > p'),
   );
 
   const paragraphs = articleDivs
