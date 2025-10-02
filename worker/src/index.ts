@@ -1,3 +1,5 @@
+import { DOMParser } from 'linkedom';
+
 export interface NewsStory {
   id: string;
   title: string;
@@ -67,7 +69,17 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
 async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Promise<NewsStory[]> {
   return Promise.all(
     stories.map(async (story) => {
-      const prompt = `Rewrite the headline and summary below so they remain factual, concise, and non-clickbait. Separate the rewritten headline and summary with a newline.\\n\\nHeadline: ${story.title}\\nSummary: ${story.summary}`;
+      let articleContent = '';
+
+      if (story.sourceUrl) {
+        try {
+          articleContent = await fetchArticleContent(story.sourceUrl);
+        } catch (error) {
+          console.warn('Failed to fetch article body for', story.sourceUrl, error);
+        }
+      }
+
+      const prompt = buildPrompt(story, articleContent);
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -77,7 +89,7 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
         },
         body: JSON.stringify({
           model: 'gpt-5-nano',
-          messages: [{ role: 'user', content: prompt }]
+          messages: [{ role: 'user', content: prompt }],
         }),
       });
 
@@ -105,40 +117,97 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
   );
 }
 
-function parseRssItems(xml: string): Array<{ title: string; description: string; link: string; guid: string }> {
-  const itemRegex = /<item\b[\s\S]*?<\/item>/gi;
-  const items: Array<{ title: string; description: string; link: string; guid: string }> = [];
+async function fetchArticleContent(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': ARTICLE_USER_AGENT,
+    },
+  });
 
-  for (const match of xml.matchAll(itemRegex)) {
-    const block = match[0];
-    items.push({
-      title: extractTag(block, 'title'),
-      description: extractTag(block, 'description'),
-      link: extractTag(block, 'link'),
-      guid: extractTag(block, 'guid'),
-    });
+  if (!response.ok) {
+    throw new Error(`Article request failed with status ${response.status}`);
   }
 
-  return items;
+  const html = await response.text();
+  return extractArticleBody(html);
 }
 
-function extractTag(xml: string, tag: string): string {
-  const pattern = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
-  const match = xml.match(pattern);
-  if (!match) {
-    return '';
+function buildPrompt(story: NewsStory, articleContent: string): string {
+  let prompt = 'Rewrite the headline and summary below so they remain factual, concise, and non-clickbait. Separate the rewritten headline and summary with a newline.';
+  prompt += `\n\nHeadline: ${story.title}`;
+  prompt += `\nSummary: ${story.summary}`;
+
+  if (articleContent) {
+    prompt += `\n\nArticle Content:\n${truncate(articleContent, 4000)}`;
   }
 
-  const content = match[1]
-    .replace(/<!\[CDATA\[([\\s\\S]*?)\]\]>/gi, '$1')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .trim();
+  return prompt;
+}
 
-  return content;
+function extractArticleBody(html: string): string {
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  const articleDivs = Array.from(
+    document.querySelectorAll('div[data-mrf-recirculation="Link Content Paragraph"]'),
+  );
+
+  const paragraphs = articleDivs
+    .map((element) => element.textContent?.trim() ?? '')
+    .filter((text) => text.length > 0);
+
+  if (paragraphs.length) {
+    return paragraphs.join('\n');
+  }
+
+  const fallback = document
+    .querySelector('meta[property="og:description"], meta[name="description"]')
+    ?.getAttribute('content');
+
+  return fallback?.trim() ?? '';
+}
+
+function parseRssItems(xml: string): Array<{
+  title: string;
+  description: string;
+  link: string;
+  guid: string;
+}> {
+  const document = new DOMParser().parseFromString(xml, 'application/xml');
+  const items = Array.from(document.querySelectorAll('item'));
+
+  return items.map((item) => ({
+    title: getText(item, ['title']) || 'Untitled story',
+    description: getText(item, ['description', 'content\\:encoded']) || '',
+    link: getText(item, ['link']) || '',
+    guid: getText(item, ['guid']) || '',
+  }));
+}
+
+function getText(parent: Element, selectors: string[]): string {
+  for (const selector of selectors) {
+    const node = parent.querySelector(selector);
+    const text = node?.textContent?.trim();
+    if (text) {
+      return text;
+    }
+  }
+
+  return '';
 }
 
 function stripHtml(value: string): string {
-  return value.replace(/<[^>]+>/g, ' ').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!value) {
+    return '';
+  }
+
+  const document = new DOMParser().parseFromString(`<body>${value}</body>`, 'text/html');
+  const text = document.body?.textContent ?? '';
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength - 1).trimEnd()}…`;
 }
