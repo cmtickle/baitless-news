@@ -1,7 +1,9 @@
 export interface NewsStory {
   id: string;
   title: string;
+  betterTitle?: string;
   summary: string;
+  betterSummary?: string;
   sourceUrl?: string;
 }
 
@@ -94,8 +96,8 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
 
       return {
         ...story,
-        title: maybeTitle?.replace(/^Title\s*:?/i, '').trim() || story.title,
-        summary: enhancedSummary || story.summary,
+        betterTitle: maybeTitle?.replace(/^Title\s*:?/i, '').trim() || story.title,
+        betterSummary: enhancedSummary || story.summary,
       };
     }),
   );
