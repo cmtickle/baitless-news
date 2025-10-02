@@ -52,7 +52,7 @@ npm install
 npm run dev
 ```
 
-The dev server binds to `http://localhost:8787`; hitting `http://localhost:8787/api/news` fetches the Express feed and, when configured, invokes GPT for rewrites.
+The dev server binds to `http://localhost:8787`; hitting `http://localhost:8787/api/news` fetches the Express feed and, when configured, invokes GPT for rewrites. Running `npm install` pulls in the runtime dependency on `linkedom`, which supplies the DOMParser used to extract article bodies.
 
 ### Deployment
 
