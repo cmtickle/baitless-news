@@ -69,7 +69,9 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
     return stories;
   }
 
-  return enhanceStoriesWithGPT(stories, openAiKey);
+  //Debug - disable GPT enhancement
+  return stories;
+  //return enhanceStoriesWithGPT(stories, openAiKey);
 }
 
 async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Promise<NewsStory[]> {
