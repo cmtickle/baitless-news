@@ -150,7 +150,7 @@ async function fetchArticleContent(url: string): Promise<string> {
 }
 
 function buildPrompt(story: NewsStory, articleContent: string): string {
-  let prompt = 'Rewrite the headline and summary below so they remain factual, concise, and non-clickbait containing specifics rather than generalisations. Separate the rewritten headline and summary with a newline.';
+  let prompt = 'Rewrite the headline and summary below so they remain factual, concise, and non-clickbait containing specifics rather than generalisations. Separate the rewritten headline and summary with a newline. Keep headlines to about 10 to 15 words. Summaries should be less than 30 words.';
   prompt += `\n\nHeadline: ${story.title}`;
   prompt += `\nSummary: ${story.summary}`;
 
