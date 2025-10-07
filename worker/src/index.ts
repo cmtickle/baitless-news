@@ -73,36 +73,79 @@ async function fetchAndSummariseStories(openAiKey: string): Promise<NewsStory[]>
   const rawItems = parseRssItems(rssText);
 
   //populate the stories and call the fetchArticleContent function
-  const stories: NewsStory[] = await Promise.all(
-    rawItems.slice(0, MAX_STORIES).map(async (item, index) => {
-      let articleContent: string | undefined;
-
-      if (item.link) {
-        try {
-          articleContent = await fetchArticleContent(item.link);
-        } catch (error) {
-          console.warn('Failed to fetch article body for', item.link, error);
-        }
-      }
-
-      const title = decodeEntities(item.title);
-      const description = decodeEntities(item.description);
-
-      return {
-        id: item.guid || `story-${index + 1}`,
-        title: title || 'Untitled story',
-        summary: stripHtml(description),
-        sourceUrl: item.link || undefined,
-        articleContent,
-      };
-    })
-  );
+  let stories: NewsStory[] = rawItems.map((item, index) => {
+    const title = decodeEntities(item.title);
+    const description = decodeEntities(item.description);
+    return {
+      id: item.guid || `story-${index + 1}`,
+      title: title || 'Untitled story',
+      summary: stripHtml(description),
+      sourceUrl: item.link || undefined,
+    };
+  });
 
   if (!stories.length || !openAiKey) {
     return stories;
   }
 
-  return enhanceStoriesWithGPT(stories, openAiKey);
+  const selectedStories = await selectMostContentiousStories(stories, openAiKey);
+
+  const storiesWithContent = await Promise.all(
+    selectedStories.map(async (story) => {
+      let articleContent: string | undefined;
+
+      if (story.sourceUrl) {
+        try {
+          articleContent = await fetchArticleContent(story.sourceUrl);
+        } catch (error) {
+          console.warn('Failed to fetch article body for', story.sourceUrl, error);
+        }
+      }
+
+      return {
+        ...story,
+        articleContent,
+      };
+    }),
+  );
+
+  return enhanceStoriesWithGPT(storiesWithContent, openAiKey);
+}
+
+async function selectMostContentiousStories(stories: NewsStory[], apiKey: string): Promise<NewsStory[]> {
+  const headlines = stories.map((story) => story.title);
+  const prompt = `From the following list of headlines, select the 12 most divisive, clickbait, or contentious ones. Return them as a numbered list:\n\n${headlines.join(
+    '\n',
+  )}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-5-nano',
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI request failed with status ${response.status}`);
+  }
+
+  const data: any = await response.json();
+  const selectedHeadlinesText: string | undefined = data?.choices?.[0]?.message?.content;
+
+  if (!selectedHeadlinesText) {
+    console.warn('OpenAI response missing content for story selection');
+    return stories.slice(0, MAX_STORIES);
+  }
+
+  const selectedHeadlines = selectedHeadlinesText.split('\n').map((line) => line.replace(/^\d+\.\s*/, '').trim());
+  const selectedStories = stories.filter((story) => selectedHeadlines.includes(story.title));
+
+  return selectedStories.length > 0 ? selectedStories.slice(0, MAX_STORIES) : stories.slice(0, MAX_STORIES);
 }
 
 async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Promise<NewsStory[]> {
