@@ -102,7 +102,6 @@ function createStoryCard(story, index) {
 
   const back = document.createElement('div');
   back.className = 'card-face card-face--back';
-  back.hidden = true;
   back.id = `original-${index}`;
 
   const backHeading = document.createElement('h3');
@@ -143,12 +142,7 @@ function createStoryCard(story, index) {
 }
 
 function flipCard(card, showOriginal) {
-  const front = card.querySelector('.card-face--front');
-  const back = card.querySelector('.card-face--back');
-
   card.dataset.side = showOriginal ? 'original' : 'rewrite';
-  front.hidden = !!showOriginal;
-  back.hidden = !showOriginal;
 
   const showButton = card.querySelector('[data-action="show-original"]');
   const hideButton = card.querySelector('[data-action="hide-original"]');
