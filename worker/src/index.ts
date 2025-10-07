@@ -27,7 +27,7 @@ const EXPRESS_HEADERS = {
 
 // Cloudflare Worker entry point
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method !== 'GET') {
       return new Response('Method Not Allowed', {
         status: 405,
@@ -35,9 +35,24 @@ export default {
       });
     }
 
+    const cache = caches.default;
+    const cacheKey = new Request(new URL(request.url).toString(), request);
+    const cachedResponse = await cache.match(cacheKey);
+
+    if (cachedResponse) {
+      console.log('Cache hit');
+      return cachedResponse;
+    }
+    console.log('Cache miss');
+
     try {
       const stories = await fetchAndSummariseStories(env.OPENAI_API_KEY);
-      return Response.json({ stories });
+      const response = Response.json({ stories });
+
+      response.headers.set('Cache-Control', 'public, max-age=600'); // 10 minutes
+      ctx.waitUntil(cache.put(cacheKey, response.clone()));
+
+      return response;
     } catch (error) {
       console.error('Failed to fetch news stories', error);
       return new Response('Failed to fetch news stories', { status: 500 });
