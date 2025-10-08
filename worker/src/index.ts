@@ -161,7 +161,7 @@ async function enhanceStoriesWithGPT(stories: NewsStory[], apiKey: string): Prom
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-5-nano',
+          model: 'gpt-4.1-nano',
           messages: [{ role: 'user', content: prompt }],
         }),
       });
