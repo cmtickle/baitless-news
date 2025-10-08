@@ -55,7 +55,10 @@ export default {
       return response;
     } catch (error) {
       console.error('Failed to fetch news stories', error);
-      return new Response('Failed to fetch news stories', { status: 500 });
+      return new Response('Failed to fetch news stories', {
+        status: 500,
+        headers: { 'Cache-Control': 'no-store' },
+      });
     }
   },
 };
